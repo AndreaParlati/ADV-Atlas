@@ -1,1 +1,3 @@
-controllare meglio la logica di cost_evaluator
+implementare cost_evaluator con la logica reale della phase1
+implementare safety_engine con la logica reale della phase1
+controllare il csv di input

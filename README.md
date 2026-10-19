@@ -5,7 +5,6 @@
 > **Retrospective space-time coincidence and re-routing added value for SAR- and altimeter-detected hazardous sea states along North Atlantic shipping corridors.**
 
 [![Python Version](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Data Source: Copernicus Marine](https://img.shields.io/badge/Data-Copernicus%20Marine-005A9C)](https://marine.copernicus.eu/)
 [![Data Source: CDSE](https://img.shields.io/badge/Data-Copernicus%20Data%20Space-002B49)](https://dataspace.copernicus.eu/)
 
@@ -118,8 +117,7 @@ CORE PIPELINE ───┼── Module C: Hydrodynamic Seakeeping (NEMOH BEM + 
 ### Setup
 ```bash
 # Clone the repository
-git clone https://github.com/username/satellite-ocean-rerouting.git
-cd satellite-ocean-rerouting
+git clone https://github.com/AndreaParlati/ADV-Atlas.git
 
 # Create and activate virtual environment
 python -m venv venv
