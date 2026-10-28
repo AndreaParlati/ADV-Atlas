@@ -28,6 +28,16 @@ class DecisionEngine:
         delta_heave = round(event.baseline_heave_m - best_safety.heave_m, 2)
         delta_roll = round(event.baseline_roll_deg - best_safety.roll_deg, 2)
 
+        # --- LEGGIAMO I MARGINI CALCOLATI DAL SAFETY ENGINE ---
+        heave_margin_recovered = best_safety.heave_margin_recovered_m
+        roll_margin_recovered = best_safety.roll_margin_recovered_deg
+        ice_margin_recovered = best_safety.ice_clearance_margin_nm
+
+        # Score sintetico normalizzato (0 a 100) del recupero di sicurezza
+        score_heave = min(100.0, max(0.0, (heave_margin_recovered / 3.5) * 50.0))
+        score_roll = min(100.0, max(0.0, (roll_margin_recovered / 5.0) * 50.0))
+        safety_score = round((score_heave + score_roll) / 2.0, 1)
+
         return ADVRecord(
             event_id=event.event_id,
             hazard_type=event.hazard_type,
@@ -40,5 +50,9 @@ class DecisionEngine:
             reroute_roll_deg=best_safety.roll_deg,
             delta_heave_m=delta_heave,
             delta_roll_deg=delta_roll,
+            heave_margin_recovered_m=heave_margin_recovered,
+            roll_margin_recovered_deg=roll_margin_recovered,
+            ice_clearance_margin_nm=ice_margin_recovered,
+            safety_margin_score=safety_score,
             safety_restored=safety_restored
         )

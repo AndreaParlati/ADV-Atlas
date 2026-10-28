@@ -4,13 +4,13 @@ from pathlib import Path
 import pandas as pd
 
 # -----------------------------------------------------------------------------
-# Configurazione del percorso sorgente (ADV-Atlas/Phase 4/src/)
+# Configurazione del percorso sorgente (ADV-Atlas/Phase_4/src/)
 # -----------------------------------------------------------------------------
 # Individua la cartella radice del progetto
 project_root = Path(__file__).resolve().parent
 
 # Percorso esatto verso la cartella src/
-src_dir = project_root / "Phase 4" / "src"
+src_dir = project_root / "Phase_4" / "src"
 
 # Aggiunta della cartella src/ direttamente al sys.path
 if src_dir.exists():
@@ -35,53 +35,53 @@ except ModuleNotFoundError as e:
 # -----------------------------------------------------------------------------
 dummy_data = [
     {
-        "event_id": "EV_WAVE_001",
-        "timestamp": "2026-10-18T10:00:00Z",
+        "event_id": "TEST_WAVE_01",
+        "timestamp": "2026-10-28T12:00:00Z",
         "latitude": 44.5,
         "longitude": -48.2,
         "route_leg": "Grand Banks",
         "hazard_type": HazardType.ROGUE_WAVE.value,
-        "forecast_hs": 3.2,
-        "forecast_tp": 8.5,
+        "forecast_hs": 3.0,
+        "forecast_tp": 8.0,
         "forecast_wave_dir": 250.0,
-        "wind_speed": 22.0,
+        "wind_speed": 20.0,
         "wind_dir": 240.0,
-        "current_speed": 0.6,
-        "current_dir": 110.0,
+        "current_speed": 0.5,
+        "current_dir": 100.0,
         "satellite_type": "Sentinel-1_IW",
-        "satellite_hs": 6.4,
-        "satellite_hmax": 12.8,
+        "satellite_hs": 6.2,
+        "satellite_hmax": 12.5, # Indice di anormalità critico (Hmax / Hs > 2)
         "ship_speed_kn": 16.0,
         "ship_heading": 280.0,
         "relative_wave_heading": 150.0,
-        "baseline_foc_ton": 14.2,
-        "baseline_heave_m": 4.12,  # Viola la soglia (3.5 m)
-        "baseline_roll_deg": 6.35   # Viola la soglia (5.0 deg)
+        "baseline_foc_ton": 14.0,
+        "baseline_heave_m": 4.1,   # VIOLA la soglia di sicurezza (> 3.5 m)
+        "baseline_roll_deg": 6.2    # VIOLA la soglia di sicurezza (> 5.0°)
     },
     {
-        "event_id": "EV_ICE_002",
-        "timestamp": "2026-10-18T14:00:00Z",
-        "latitude": 46.1,
-        "longitude": -47.8,
+        "event_id": "TEST_ICE_02",
+        "timestamp": "2026-10-28T16:00:00Z",
+        "latitude": 46.0,
+        "longitude": -47.5,
         "route_leg": "Grand Banks",
         "hazard_type": HazardType.ICEBERG.value,
-        "forecast_hs": 2.5,
+        "forecast_hs": 2.0,
         "forecast_tp": 7.0,
         "forecast_wave_dir": 220.0,
         "wind_speed": 15.0,
         "wind_dir": 210.0,
-        "current_speed": 0.4,
+        "current_speed": 0.3,
         "current_dir": 90.0,
         "satellite_type": "Sentinel-1_EW",
-        "satellite_hs": 2.8,
-        "satellite_hmax": 5.0,
-        "iceberg_distance_nm": 8.0, # Troppo vicino! (Soglia min: 15 NM)
+        "satellite_hs": 2.2,
+        "satellite_hmax": 4.0,
+        "iceberg_distance_nm": 8.0,  # VIOLA la clearance minima (< 15 NM)
         "ship_speed_kn": 16.0,
         "ship_heading": 275.0,
         "relative_wave_heading": 120.0,
         "baseline_foc_ton": 12.0,
-        "baseline_heave_m": 2.1,
-        "baseline_roll_deg": 3.0
+        "baseline_heave_m": 2.0,
+        "baseline_roll_deg": 2.5
     }
 ]
 
@@ -107,9 +107,16 @@ if __name__ == "__main__":
     df_out = pd.read_csv(output_file)
     
     columns_to_show = [
-        "event_id", "hazard_type", "optimal_strategy", 
-        "applied_speed_kn", "applied_detour_nm", 
-        "delta_foc_ton", "safety_restored"
+        "event_id", 
+        "hazard_type", 
+        "optimal_strategy", 
+        "applied_speed_kn", 
+        "applied_detour_nm", 
+        "delta_foc_ton", 
+        "heave_margin_recovered_m",
+        "roll_margin_recovered_deg",
+        "safety_margin_score",
+        "safety_restored"
     ]
     print(df_out[columns_to_show].to_string(index=False))
 

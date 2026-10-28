@@ -61,6 +61,9 @@ class SafetyCheckResult(BaseModel):
     roll_deg: float
     ice_clearance_nm: Optional[float] = None
     is_safe: bool
+    heave_margin_recovered_m: float = 0.0
+    roll_margin_recovered_deg: float = 0.0
+    ice_clearance_margin_nm: Optional[float] = None
 
 
 class CostResult(BaseModel):
@@ -83,4 +86,9 @@ class ADVRecord(BaseModel):
     reroute_roll_deg: float
     delta_heave_m: float
     delta_roll_deg: float
+    heave_margin_recovered_m: float      
+    roll_margin_recovered_deg: float     
+    ice_clearance_margin_nm: Optional[float] = None
+    safety_margin_score: float           # Indice normalizzato complessivo di sicurezza recuperata (0-100%)
+  
     safety_restored: bool

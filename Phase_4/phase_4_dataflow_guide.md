@@ -121,6 +121,10 @@ Il risultato finale della simulazione viene esportato nel dataset **`Phase4_ADV_
 | `iceberg_clearance_m` | *Float* | Nuova distanza minima dall'iceberg o limite del ghiaccio ($NM$). |
 | `delta_heave_m` | *Float* | Riduzione del moto di sussulto rispetto alla baseline ($m$). |
 | `delta_roll_deg` | *Float* | Riduzione del moto di rollio rispetto alla baseline ($^\circ$). |
+| `heave_margin_recovered_m` | *Float*	| Margine di sussulto recuperato (riduzione del moto + headroom di sicurezza). |
+| `roll_margin_recovered_deg` |	*Float*	| Margine di rollio recuperato rispetto alla soglia limite. |
+| `ice_clearance_margin_nm` |	*Float* | (Optional)	Margine di distanza extra guadagnato dal limite dei ghiacci (NM). |
+| `safety_margin_score` |	*Float*	| Indice sintetico normalizzato (0–100%) del recupero complessivo di sicurezza. |
 | `safety_restored` | *Boolean* | `True` se tutti i parametri di sicurezza fisica/clearance sono stati ripristinati. |
 
 ---
