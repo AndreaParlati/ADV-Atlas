@@ -1,85 +1,76 @@
 """
 Motore di verifica della sicurezza idrodinamica (Seakeeping) e distanze dai ghiacci.
-Aggiornato con i moduli idrodinamici e di performance di Phase 1 (adv_fuel_model).
 """
+
 from pathlib import Path
 import sys
 
-# Aggiunge dinamicamente la cartella Phase_1 al sys.path
+# Aggiunge dinamicamente la root al sys.path per importare adv_core
 root_dir = Path(__file__).resolve().parent.parent.parent
-phase1_dir = root_dir / "Phase_1"
-if str(phase1_dir) not in sys.path:
-    sys.path.append(str(phase1_dir))
+if str(root_dir) not in sys.path:
+    sys.path.append(str(root_dir))
 
 from typing import Optional
+import numpy as np
 from config import SafetyThresholds
 from models import EventRecord, CandidateScenario, SafetyCheckResult, HazardType
-from adv_fuel_model import ShipParticulars, leg_performance, wave_relative_heading
+
+# Importazione dai moduli granulari di adv_core creati in Phase 1
+from phase_1.adv_core.oceanography import speed_through_water, jonswap_spectrum
+from phase_1.adv_core.seakeeping import motion_statistics
 
 
 class SafetyEngine:
-    def __init__(self, thresholds: SafetyThresholds = SafetyThresholds(), ship_particulars: Optional[ShipParticulars] = None):
+    def __init__(self, thresholds: SafetyThresholds = SafetyThresholds()):
         self.thresholds = thresholds
-        self.ship_particulars = ship_particulars or ShipParticulars()
 
     def evaluate_safety(self, candidate: CandidateScenario, event: EventRecord) -> SafetyCheckResult:
         """
-        Calcola i moti della nave, la risposta idrodinamica e la clearance dagli iceberg,
-        verificando le soglie di sicurezza e la fattibilità propulsiva di Phase 1.
+        Valuta i moti della nave utilizzando STW, spettri d'onda JONSWAP e statistiche spettrali.
         """
-        # Estrazione e calcolo delle condizioni operative applicate dal candidato
         applied_speed_kn = candidate.applied_speed_kn
-        applied_heading_deg = getattr(event, 'ship_heading_deg', 0.0) + getattr(candidate, 'applied_detour_deg', 0.0)
-        
-        # Recupero dei parametri ambientali dall'evento (con fallback a default standard)
-        hs = getattr(event, 'hs_m', 3.0)
-        t0 = getattr(event, 't0_s', 10.0)
-        wave_from_deg = getattr(event, 'wave_from_deg', 0.0)
-        wind_speed = getattr(event, 'wind_speed_ms', 10.0)
-        wind_from_deg = getattr(event, 'wind_from_deg', 0.0)
-        current_speed = getattr(event, 'current_speed_ms', 0.0)
-        current_dir_to_deg = getattr(event, 'current_dir_to_deg', 0.0)
+        ship_heading = getattr(event, 'ship_heading', 0.0)
 
-        # Invocazione del modello di performance e resistenza di Phase 1 (adv_fuel_model)
-        perf = leg_performance(
-            sog_kn=applied_speed_kn,
-            heading_deg=applied_heading_deg,
-            ship=self.ship_particulars,
-            Hs=hs,
-            T0=t0,
-            wave_from_deg=wave_from_deg,
-            wind_speed=wind_speed,
-            wind_from_deg=wind_from_deg,
-            current_speed=current_speed,
-            current_dir_to_deg=current_dir_to_deg
+        # 1. Calcolo Speed Through Water (STW) rispetto alle correnti
+        stw_knots = speed_through_water(
+            sog=applied_speed_kn,
+            current_speed=getattr(event, 'current_speed', 0.0),
+            current_dir=getattr(event, 'current_dir', 0.0),
+            ship_heading=ship_heading
         )
 
-        # Calcolo dei moti basato sulla velocità e sull'influenza rigorosa d'onda di Phase 1
-        speed_ratio = applied_speed_kn / event.ship_speed_kn if event.ship_speed_kn > 0 else 1.0
-        mu = perf["mu_deg"]
-        
-        # Fattore di correzione basato sull'angolo di incidenza delle onde (head seas vs following seas)
-        heading_factor = 1.0 + 0.2 * (1.0 - abs(mu - 180.0) / 180.0)
+        # 2. Generazione spettro energetico JONSWAP
+        hs = getattr(event, 'forecast_hs', 3.0)
+        tp = getattr(event, 'forecast_tp', 10.0)
+        frequencies = np.linspace(0.1, 2.0, 50)
+        wave_spec = jonswap_spectrum(frequencies, hs=hs, tp=tp)
 
-        heave_m = round(event.baseline_heave_m * (speed_ratio ** 1.5) * heading_factor, 2)
-        roll_deg = round(event.baseline_roll_deg * speed_ratio * (1.0 + 0.1 * (perf["R_wave_kN"] / max(perf["R_total_kN"], 1.0))), 2)
+        # 3. Statistiche dei moti (Heave e Roll tramite RAO)
+        heave_rao = np.ones_like(frequencies) * 0.4
+        roll_rao = np.ones_like(frequencies) * 1.2
 
-        # Check Iceberg (Modulo A)
+        heave_stats = motion_statistics(heave_rao, wave_spec, frequencies)
+        roll_stats = motion_statistics(roll_rao, wave_spec, frequencies)
+
+        speed_ratio = stw_knots / max(event.ship_speed_kn, 0.1)
+        heave_m = round(heave_stats['significant_response'] * (speed_ratio ** 0.8), 2)
+        roll_deg = round(roll_stats['significant_response'] * speed_ratio, 2)
+
+        # 4. Verifica Clearance Iceberg (Modulo A)
         ice_clearance: Optional[float] = None
         ice_safe = True
         if event.hazard_type == HazardType.ICEBERG and event.iceberg_distance_nm is not None:
             ice_clearance = event.iceberg_distance_nm + abs(candidate.applied_detour_nm)
             ice_safe = ice_clearance >= self.thresholds.MIN_ICE_CLEARANCE_NM
 
-        # Verifica complessiva delle soglie (inclusa la fattibilità del carico motore calcolata in Phase 1)
+        # 5. Verifica complessiva delle soglie
         is_safe = (
             heave_m <= self.thresholds.MAX_HEAVE_M and
             roll_deg <= self.thresholds.MAX_ROLL_DEG and
-            ice_safe and
-            perf["feasible"]
+            ice_safe
         )
 
-        # --- CALCOLO DEI MARGINI RECUPERATI ---
+        # Calcolo dei margini recuperati
         delta_heave = event.baseline_heave_m - heave_m
         delta_roll = event.baseline_roll_deg - roll_deg
 
