@@ -10,7 +10,7 @@ import pandas as pd
 project_root = Path(__file__).resolve().parent
 
 # Percorso esatto verso la cartella src/
-src_dir = project_root / "Phase 4" / "src"
+src_dir = project_root / "Phase_4" / "src"
 
 # Aggiunta della cartella src/ direttamente al sys.path
 if src_dir.exists():

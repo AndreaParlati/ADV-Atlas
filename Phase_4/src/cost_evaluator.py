@@ -1,8 +1,11 @@
 """
-Motore per il calcolo della potenza richiesta, dello SFOC e della penalità di carburante (Delta FOC).
+Motore per il calcolo della potenza richiesta, dello SFOC e del consumo di carburante
+integrato con i moduli di resistenza e propulsione della Phase 1 (adv_core).
 """
 from config import ScenarioConfig
 from models import EventRecord, CandidateScenario, CostResult
+from Phase_1.adv_core.resistance import holtrop_mennen_resistance, wind_resistance
+from Phase_1.adv_core.propulsion import leg_performance
 
 
 class CostEvaluator:
@@ -11,19 +14,35 @@ class CostEvaluator:
 
     def calculate_cost(self, candidate: CandidateScenario, event: EventRecord) -> CostResult:
         """
-        Calcola il consumo di carburante (FOC) della manovra e la differenza rispetto alla baseline.
-        In un'implementazione reale, invoca le equazioni propulsive 1-18 della Phase 1.
+        Calcola il consumo di carburante (FOC) e la potenza utilizzando i modelli fisici di Phase 1.
         """
-        # La potenza varia con il cubo della velocità (Legge dell'elica) + costo deviazione rotta
-        speed_ratio = candidate.applied_speed_kn / event.ship_speed_kn
-        distance_factor = 1.0 + (abs(candidate.applied_detour_nm) / 200.0)
+        # Dati geometrici di riferimento della nave
+        particulars = {'length': 120.0, 'wetted_surface': 1400.0}
         
-        # Calcolo FOC sulla finestra temporale locale
-        foc_ton = round(event.baseline_foc_ton * (speed_ratio ** 3) * distance_factor, 2)
+        # 1. Calcolo resistenza in acque calme (Holtrop-Mennen)
+        r_calm = holtrop_mennen_resistance(candidate.applied_speed_kn, particulars)
+        
+        # 2. Calcolo resistenza al vento apparente
+        r_wind = wind_resistance(
+            v_true=event.wind_speed,
+            angle_true=event.wind_dir,
+            v_ship=candidate.applied_speed_kn,
+            ship_heading=event.ship_heading,
+            superstructure_area=150.0
+        )
+        
+        total_resistance = r_calm + r_wind
+        
+        # 3. Prestazioni propulsive e consumo orario di carburante
+        engine_params = {'total_efficiency': 0.65, 'base_sfoc': 185.0}
+        perf = leg_performance(total_resistance, candidate.applied_speed_kn, engine_params)
+        
+        required_power_kw = round(perf['power_brake_kw'], 1)
+        
+        # Consumo totale stimato sulla finestra temporale dell'evento (es. 6 ore)
+        foc_kg = perf['fuel_rate_kg_h'] * self.config.EVENT_WINDOW_HOURS
+        foc_ton = round(foc_kg / 1000.0, 2)
         delta_foc_ton = round(foc_ton - event.baseline_foc_ton, 2)
-        
-        # Potenza approssimata in kW (Motore MAN B&W 8K90MC-C)
-        required_power_kw = round(37000.0 * (speed_ratio ** 3), 1)
 
         return CostResult(
             foc_ton=foc_ton,
