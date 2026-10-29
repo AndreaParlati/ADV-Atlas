@@ -35,9 +35,8 @@ Phase 3 **prefers local files** and only goes online for what is missing:
 | Sentinel-1 acquisitions (time, mode, footprint — no images) | `data/s1_items_cache.json` | Missing days are requested from the CDSE STAC catalogue and added to the cache |
 | SAR / altimeter results from an earlier run | `data/sar_coincidence_raw.parquet`, `data/altimeter_coincidence_raw.parquet` | Recomputed |
 
-Local data currently available: wave reanalysis and L3 altimetry for **2010–2020**, Sentinel-1
-catalogue for **2010–2020 and 2022**. The 2022 wave and altimeter files used for the test run below
-are no longer in the folders, so re-running 2022 would stream them.
+Local data currently available: wave reanalysis, L3 altimetry and Phase 2 catalogues for **2010–2020**,
+Sentinel-1 catalogue for **2010–2020 and 2022**. The results in §4 come from the 2010–2020 run.
 
 > **Sentinel-1 coverage by year** (from the cache): no Level-2 OCN products over the corridor in
 > **2010–2014**, sparse in **2015–2016**, full from **2017**. Sentinel-1B flew from 2016 to Dec 2021, so
@@ -49,7 +48,7 @@ are no longer in the folders, so re-running 2022 would stream them.
 
 | Variable | Default | Meaning |
 |---|---|---|
-| `YEAR_START`, `YEAR_END` | `2022, 2022` | Years to analyse. Set to `2010, 2020` to use the local data |
+| `YEAR_START`, `YEAR_END` | `2010, 2020` | Years to analyse (all local data) |
 | `ROUTE_LONS`, `ROUTE_LATS` | 60 points Lisbon → Halifax | Route nodes (used only when the catalogue is built inline) |
 | `DELTA_T_HOURS` | `3.0` | ± time window for a coincidence [h] |
 | `DELTA_X_KM` | `200.0` | Distance radius for a coincidence [km] |
@@ -73,9 +72,9 @@ The thresholds are cross-checked against `ship_physics/ship_physics.py`; a warni
 
 ### How to run
 - Run `download_data.ipynb` and `phase2_hazard_timeline.ipynb` for the same years first.
-- **Remove or fix the cell right after §3.1** (`hazard_catalogue = pd.read_parquet("C:\\Users\\...\\hazard_catalogue_2022.parquet")`).
-  It is a leftover inspection cell with an absolute path: it breaks on any other computer and fails
-  if the 2022 file is gone. Nothing else uses it.
+- **Remove or fix the cell right after §3.1** (`hazard_catalogue = pd.read_parquet("C:\\Users\\...\\hazard_catalogue_2012.parquet")`).
+  It is a leftover inspection cell with an absolute path: it breaks on any other computer. Nothing else uses it.
+- A full 2010–2020 run (444k events) takes several minutes for the SAR and altimeter loops; later runs reuse the checkpoints.
 - In VS Code / Jupyter: select the `.venv` kernel and *Run All*.
 - From the terminal:
   ```bash
@@ -113,10 +112,10 @@ event count and how many were triggered by each rule (`flag_reason`).
 > | Size (order of) | ~40,000 rows per year | ~3,000 events per year |
 > | Extra columns | `U10_era5`, `flag_heave`, `flag_rogue`, `lon_bin` | `route_node`, `n_steps`, `event_start`, `event_end` |
 >
-> With the Phase 2 file, Phase 3 runs ~13× longer and each storm is counted many times, so
-> probabilities become *time-weighted* ("share of hazardous hours observed") rather than
-> *event-weighted* ("share of storms observed"). Both are valid, but state which one you report.
-> Phase 2's `lon_bin` is ignored: Phase 3 recomputes its own bands from `LON_EDGES`.
+> The 2010–2020 results in §4 use the **Phase 2** catalogue for every year. Each storm is counted once per
+> waypoint and 3-h step, so probabilities are *time-weighted* ("share of hazardous waypoint-hours observed")
+> rather than *event-weighted* ("share of storms observed"). Phase 2's `lon_bin` is ignored: Phase 3
+> recomputes its own bands from `LON_EDGES`.
 
 ### 3.2 Sentinel-1 SAR coincidence
 **Does:** for each event, finds Sentinel-1 Level-2 OCN products (IW/EW wide swaths and WV
@@ -214,67 +213,121 @@ ADV uses |ΔHs|, so a band where the model over-predicts scores as high as one w
 
 ---
 
-## 4. Results (2022 test run, inline catalogue, 3,037 events)
+## 4. Results (2010–2020, Phase 2 catalogue, 444,229 events)
 
-These are the latest executed results. They come from the **inline** catalogue (§3.1, merged events) and
-one Sentinel-1 satellite. A 2010–2020 run with the Phase 2 catalogue will give different numbers (see §3.1 box).
+Each "event" is one route waypoint × one 3-hour step with Hs > 3.5 m (§3.1 box), so every P below is the
+**share of hazardous waypoint-hours that a satellite observed** within ± 3 h and 200 km. Half of all events
+(50 %) fall in December–February, so the results describe winter conditions above all.
+Numbers marked *(derived)* were computed from `data/coincidence_merged.parquet`; the rest are printed by the notebook.
+
+### Coverage year by year *(derived)*
+
+| Year | N events | P(SAR) | P(altimeter) | P(either) |
+|---|---|---|---|---|
+| 2010 | 40,763 | 0.000 | 0.297 | 0.297 |
+| 2011 | 35,942 | 0.000 | 0.343 | 0.343 |
+| 2012 | 33,221 | 0.000 | 0.229 | 0.229 |
+| 2013 | 45,395 | 0.000 | 0.218 | 0.218 |
+| 2014 | 40,436 | 0.000 | 0.246 | 0.246 |
+| 2015 | 38,678 | 0.013 | 0.262 | 0.272 |
+| 2016 | 41,255 | 0.059 | 0.310 | 0.345 |
+| 2017 | 37,720 | 0.144 | 0.385 | 0.475 |
+| 2018 | 48,492 | 0.240 | 0.401 | 0.530 |
+| 2019 | 39,764 | 0.235 | 0.382 | 0.537 |
+| 2020 | 42,563 | 0.237 | 0.373 | 0.518 |
+
+**How to read it:** before 2015 there is no Sentinel-1 product over the corridor, so P(SAR) = 0 is the absence
+of the mission, not a miss. SAR coverage ramps up in 2015–2016 and is stable at ≈ 0.24 from 2018 (two satellites,
+S1A + S1B). Altimeter coverage varies between 0.22 and 0.40 with the number of missions flying.
+**Probability of being observed rose from about 1 in 4 (2012–2014) to about 1 in 2 (2018–2020).**
+Because of this jump, the 2010–2020 averages below mix two very different periods; the **2017–2020** column is the
+best picture of today's satellite system.
 
 ### H1 — Is a single mission enough? → **Supported**
 
-| Source | P(coincidence) |
-|---|---|
-| One SAR mode (EW / WV / IW) | 0.025 / 0.031 / 0.064 |
-| One altimeter mission | 0.074 (Jason-3) to 0.124 (Sentinel-3B) |
-| **Sentinel-1, all modes** | **0.112** |
-| **All altimeters** | **0.435** |
-| **SAR or altimeter** | **0.501** |
-
-With one satellite, a hazard event is observed about 1 time in 10. With every mission combined, about half
-the time. All 2022 SAR coverage is Sentinel-1A. Altimeters contribute most of the coverage because there are
-five of them (CryoSat-2, Jason-3, SARAL, Sentinel-3A/B), even though each only sees a thin line.
-
-### H2 — Is coverage higher near the Grand Banks? → **Not supported in 2022**
-
-| Segment | P(either) | N events |
+| Source | P, 2010–2020 | P, 2017–2020 *(derived)* |
 |---|---|---|
-| Grand Banks (45–55°W) | 0.526 | 643 |
-| Mid-Atlantic (20–40°W) | 0.516 | 1,063 |
-| Corridor average | 0.501 | 3,037 |
+| One SAR mode (EW / IW / WV) | 0.020 / 0.033 / 0.039 | — |
+| One altimeter mission | 0.019 (Jason-1) to 0.081 (CryoSat-2) | — |
+| **Sentinel-1, all modes** | **0.089** | **0.216** |
+| **All altimeters** | **0.315** | **0.386** |
+| **SAR or altimeter** | **0.368** | **0.516** |
+| *2022 test run, for comparison (S1A only, merged-storm catalogue)* | *SAR 0.112, alt 0.435, either 0.501* | |
 
-Coverage is fairly even between 15°W and 64°W (0.47–0.58 per band). The 49–54°W band is highest (0.58) but
-44–49°W is below average (0.48), so the Grand Banks as a whole is no different from the mid-Atlantic. The clear
-outlier is the **Lisbon end** (9–14°W) at 0.38, partly due to calm-sea events (§5). More years are needed before
-calling H2 rejected.
+Over the whole period each single SAR mode or altimeter catches at most 8 % of hazardous waypoint-hours, while the
+full set catches 37 % (52 % since 2017): combining missions multiplies coverage by roughly 5–20. Sentinel-1A and 1B
+contribute about equally (21,384 and 18,010 events with a coincident footprint). Eight altimeter missions appear
+over the decade (CryoSat-2, Envisat, Jason-1/2/3, SARAL, Sentinel-3A/B); none of them covers more than 8 % alone.
 
-### H3 — Does the model underestimate peak Hs? → **Not supported in 2022**
+### H2 — Is coverage higher near the Grand Banks? → **Not supported**
 
-| Metric | Value |
-|---|---|
-| Events with an altimeter match | 1,322 |
-| Mean ΔHs (altimeter − model at event) | −0.003 m |
-| Median ΔHs | −0.048 m |
-| % events where the altimeter is higher | 45.6 % |
-| Mean ΔHs, model at the altimeter's place and time | +0.093 m |
-| R² (model vs altimeter) | 0.85 |
+| Segment | P(either), 2010–2020 | N | P(either), 2017–2020 *(derived)* | N |
+|---|---|---|---|---|
+| Grand Banks (45–55°W) | 0.385 | 92,530 | 0.527 | 35,589 |
+| Mid-Atlantic (20–40°W) | 0.371 | 196,685 | 0.522 | 73,830 |
+| Corridor average | 0.368 | 444,229 | 0.516 | 168,539 |
 
-Model and altimeters agree closely, with no systematic underestimation of event peaks. The collocated
-comparison shows a small positive bias (+9 cm), a weak hint in the H3 direction, much smaller than the scatter.
+Per 5° band (`data/coincidence_by_lon_bin.csv`), P(either) rises **steadily from Lisbon to Halifax**: 0.30 at
+9–14°W, 0.36–0.38 in the mid-Atlantic, 0.40 at 54–64°W. The trend comes from the altimeters (P_alt 0.23 → 0.35), while SAR stays at
+0.07–0.11 in every band. It is consistent with altimeter ground tracks lying closer together at higher latitude, as
+the route climbs from 38.7°N to 44.7°N. It is a smooth east-west trend, not a Grand Banks peak: the two Grand Banks bands (0.377 and 0.393) sit right on the trend, and in 2017–2020 the Grand Banks and
+the mid-Atlantic differ by only 0.005. The lower values at the Lisbon end are robust (26,000+ events per band).
+
+### H3 — Does the model underestimate peak Hs? → **Weakly supported**
+
+| Metric | All matched events | Hs > 6 m events *(derived)* |
+|---|---|---|
+| Events with an altimeter match | 139,817 | 16,890 |
+| Mean ΔHs (altimeter − model at event) | **+0.077 m** | **+0.134 m** |
+| Median ΔHs | +0.067 m | +0.108 m |
+| % events where the altimeter is higher | 56.5 % | 58.0 % |
+| Mean ΔHs, model at the altimeter's place and time | +0.094 m | +0.181 m |
+| R² / RMS difference (model vs altimeter) *(derived)* | 0.81 / 0.56 m | |
+
+All indicators point the same way: the altimeters see slightly higher waves than the model, and the gap roughly
+doubles in severe seas (Hs > 6 m), the cases that matter most for ships. The collocated control agrees in sign.
+But the bias (8–18 cm) is small next to the scatter (0.56 m RMS), and it **depends strongly on the mission**: mean ΔHs
+is +0.18 to +0.28 m for Jason-1/2 and SARAL, and −0.13 to −0.14 m for Sentinel-3A/B *(derived)*. Part of the
+"model underestimation" is therefore a calibration difference between altimeters, not only a model error (§5).
+The result also changed sign from the 2022 test (−0.003 m), which used a different catalogue and only five missions.
+Median distance from event to altimeter sample: 93 km, median time offset: 1.5 h.
 
 ### ADV atlas
-Highest at the **Lisbon end** (0.23 m), then the **49–54°W Grand Banks band** (0.11 m); mostly below 0.07 m
-elsewhere. The Lisbon value is **an artefact, not a finding** (next section).
+
+| Band | P(either) | Mean ΔHs [m] | ADV [m] |
+|---|---|---|---|
+| 9–14°W (Lisbon end) | 0.295 | +0.09 | 0.027 |
+| 14–19°W | 0.312 | +0.11 | 0.034 |
+| 19–44°W (5 bands) | 0.356–0.380 | +0.07 to +0.09 | 0.026–0.034 |
+| 44–49°W (Grand Banks) | 0.377 | +0.05 | 0.020 |
+| 49–54°W (Grand Banks) | 0.393 | +0.09 | 0.034 |
+| 54–64°W (2 bands) | 0.400 | +0.07 | 0.028–0.029 |
+
+ADV is flat along the whole corridor (0.020–0.034 m): no segment stands out where a satellite would bring
+clearly more information. The Lisbon artefact of the 2022 test (0.23 m) is gone, because the Phase 2 catalogue has no
+calm-sea events. Every band has a positive ΔHs, so ADV here is driven by the H3 bias.
+
+### In one sentence
+A hazardous sea state on this route had about a 1-in-3 chance of being seen by a satellite over 2010–2020, rising to
+about 1-in-2 once both Sentinel-1 satellites were flying. Coverage is nearly uniform along the route, and where
+altimeters did look, they found waves slightly (≈ 8 cm, ≈ 13 cm in severe seas) higher than the model.
 
 ---
 
 ## 5. Known limitations and caveats
 
-- **Calm-sea events (inline catalogue only).** The "Hs > 2 × 30-day mean" rule also fires when a calm sea
-  rises from e.g. 0.15 to 0.35 m. These events, mostly near Lisbon, are the cluster at Hs_model ≈ 0.3 m in the
-  H3 scatter and inflate the Lisbon ADV. The Phase 2 catalogue does not have this problem (it only uses Hs thresholds).
-- **Event definition.** Results from the Phase 2 catalogue (per 3-h step) and the inline catalogue (per storm)
-  are not directly comparable; see §3.1.
-- **No SAR before 2015.** 2010–2014 have no Sentinel-1 OCN products, 2015–2016 very few. Compare H1 across
-  years only from 2017 on, or report SAR-era and pre-SAR years separately.
+- **Events are not independent.** One row per waypoint × 3-h step means a single storm contributes hundreds of
+  rows. P values are shares of hazardous time, and the large N overstates statistical confidence; merge rows into
+  storms before running significance tests.
+- **Event definition.** Results from the Phase 2 catalogue (per 3-h step, used in §4) and the inline catalogue
+  (per storm, used in the 2022 test) are not directly comparable; see §3.1.
+- **Calm-sea events (inline catalogue only).** The "Hs > 2 × 30-day mean" rule fires when a calm sea rises from
+  e.g. 0.15 to 0.35 m. It inflated the Lisbon ADV in the 2022 test; the Phase 2 catalogue used in §4 does not have it.
+- **No SAR before 2015.** 2010–2014 have no Sentinel-1 OCN products, 2015–2016 very few. The 2010–2020 averages
+  mix pre-SAR and SAR years; use the 2017–2020 figures for today's coverage.
+- **Mission-to-mission calibration.** ΔHs ranges from about −0.14 m (Sentinel-3A/B) to +0.28 m (SARAL), so the
+  pooled H3 bias depends on which missions were flying. A fair H3 test needs inter-calibrated altimeter Hs (or a
+  per-mission analysis).
 - **Hazard flag is an Hs stand-in**, not the ship-response flag from Phase 1 (heave + roll RAO + Hmax/Hs).
 - **"Coincidence" differs by sensor:** an altimeter measures a ~7 km line under the satellite, Sentinel-1
   IW/EW image 250–400 km swaths, WV takes 20 × 20 km snapshots every 100 km. The SAR circle uses 1° ≈ 111 km,
@@ -283,8 +336,10 @@ elsewhere. The Lisbon value is **an artefact, not a finding** (next section).
 
 ## 6. Next steps
 1. Remove the hard-coded-path cell after §3.1.
-2. Decide which event definition to report (per step, or merge Phase 2 rows into storms), then run
-   `YEAR_START, YEAR_END = 2010, 2020` after deleting the old `*_coincidence_raw.parquet` checkpoints.
-3. Replace the Hs stand-in with the full `ship_physics.py` hazard flag once Phase 1 RAOs are ready.
-4. Use Sentinel-1 OCN wave products (`sentinel1_l2_*`) to compare Hs_max for case studies.
-5. Pass the confirmed coincidences to the Phase 4 re-routing simulation.
+2. Add per-year and per-mission tables to the notebook itself (the *(derived)* numbers in §4), so they are
+   regenerated on every run.
+3. Merge Phase 2 rows into storm events and repeat H1–H3 per storm, with confidence intervals.
+4. Test H3 per altimeter mission (or with inter-calibrated Hs) and by Hs class.
+5. Replace the Hs stand-in with the full `ship_physics.py` hazard flag once Phase 1 RAOs are ready.
+6. Use Sentinel-1 OCN wave products (`sentinel1_l2_*`) to compare Hs_max for case studies.
+7. Pass the confirmed coincidences to the Phase 4 re-routing simulation.
