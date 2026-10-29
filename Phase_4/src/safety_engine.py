@@ -1,24 +1,24 @@
 """
 Motore di verifica della sicurezza idrodinamica (Seakeeping) e distanze dai ghiacci
-integrato con i moduli oceanografici e di seakeeping della Phase 1 (adv_core).
 """
 
 from pathlib import Path
 import sys
 
-# Aggiunge dinamicamente la root al sys.path per importare adv_core
+# Aggiunge dinamicamente la cartella adv_core al sys.path
 root_dir = Path(__file__).resolve().parent.parent.parent
-if str(root_dir) not in sys.path:
-    sys.path.append(str(root_dir))
+adv_core_dir = root_dir / "Phase_1" / "adv_core"
+if str(adv_core_dir) not in sys.path:
+    sys.path.append(str(adv_core_dir))
 
 from typing import Optional
 import numpy as np
 from config import SafetyThresholds
 from models import EventRecord, CandidateScenario, SafetyCheckResult, HazardType
 
-# Importazione dai moduli granulari di adv_core creati in Phase 1
-from phase_1.adv_core.oceanography import speed_through_water, jonswap_spectrum
-from phase_1.adv_core.seakeeping import motion_statistics
+# Importazione dai moduli granulari di adv_core
+from oceanography import speed_through_water, jonswap_spectrum
+from seakeeping import motion_statistics
 
 
 class SafetyEngine:

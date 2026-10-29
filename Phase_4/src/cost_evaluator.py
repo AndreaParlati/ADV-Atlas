@@ -5,21 +5,17 @@ Motore per il calcolo della potenza richiesta e del consumo di carburante (FOC).
 from pathlib import Path
 import sys
 
-# Aggiunge dinamicamente la root al sys.path per importare adv_core
+# Aggiunge dinamicamente la cartella adv_core al sys.path
 root_dir = Path(__file__).resolve().parent.parent.parent
-if str(root_dir) not in sys.path:
-    sys.path.append(str(root_dir))
+adv_core_dir = root_dir / "Phase_1" / "adv_core"
+if str(adv_core_dir) not in sys.path:
+    sys.path.append(str(adv_core_dir))
 
 from typing import Optional
 from config import ScenarioConfig
 from models import EventRecord, CandidateScenario, CostResult
-from Phase_1.adv_core.resistance import holtrop_mennen_resistance, wind_resistance
-from Phase_1.adv_core.propulsion import leg_performance
-
-# Importazione dai moduli granulari di adv_core creati in Phase 1
-from phase_1.adv_core.resistance import holtrop_mennen_resistance, wind_resistance
-from phase_1.adv_core.propulsion import leg_performance
-
+from resistance import holtrop_mennen_resistance, wind_resistance
+from propulsion import leg_performance
 
 class CostEvaluator:
     def __init__(self, config: ScenarioConfig = ScenarioConfig()):

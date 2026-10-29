@@ -9,9 +9,6 @@ import pandas as pd
 project_root = Path(__file__).resolve().parent
 src_dir = project_root / "Phase_4" / "src"
 
-# Percorso esatto verso la cartella src/
-src_dir = project_root / "Phase_4" / "src"
-
 # Aggiunta della cartella src/ direttamente al sys.path
 if src_dir.exists():
     sys.path.insert(0, str(src_dir.resolve()))
@@ -31,7 +28,7 @@ except ModuleNotFoundError as e:
 
 
 # -----------------------------------------------------------------------------
-# Creazione Dati Sintetici di Prova (Aggiornati con i parametri della Phase 1)
+# Creazione Dati Sintetici di Prova (Allineati con i campi di EventRecord)
 # -----------------------------------------------------------------------------
 dummy_data = [
     {
@@ -41,20 +38,21 @@ dummy_data = [
         "longitude": -48.2,
         "route_leg": "Grand Banks",
         "hazard_type": HazardType.ROGUE_WAVE.value,
-        # Parametri ambientali mappati per il nuovo SafetyEngine e CostEvaluator
-        "hs_m": 3.0,
-        "t0_s": 8.0,
-        "wave_from_deg": 250.0,
-        "wind_speed_ms": 20.0,
-        "wind_from_deg": 240.0,
-        "current_speed_ms": 0.5,
-        "current_dir_to_deg": 100.0,
+        # Parametri meteo-marini (mappati sui campi attesi da EventRecord)
+        "forecast_hs": 3.0,
+        "forecast_tp": 8.0,
+        "forecast_wave_dir": 250.0,
+        "wind_speed": 20.0,
+        "wind_dir": 240.0,
+        "current_speed": 0.5,
+        "current_dir": 100.0,
         # Dati satellite e nave
         "satellite_type": "Sentinel-1_IW",
         "satellite_hs": 6.2,
         "satellite_hmax": 12.5,  # Indice di anormalità critico (Hmax / Hs > 2)
         "ship_speed_kn": 16.0,
-        "ship_heading_deg": 280.0,
+        "ship_heading": 280.0,
+        "relative_wave_heading": 30.0,
         "baseline_foc_ton": 14.0,
         "baseline_heave_m": 4.1,   # VIOLA la soglia di sicurezza (> 3.5 m)
         "baseline_roll_deg": 6.2    # VIOLA la soglia di sicurezza (> 5.0°)
@@ -66,21 +64,22 @@ dummy_data = [
         "longitude": -47.5,
         "route_leg": "Grand Banks",
         "hazard_type": HazardType.ICEBERG.value,
-        # Parametri ambientali
-        "hs_m": 2.0,
-        "t0_s": 7.0,
-        "wave_from_deg": 220.0,
-        "wind_speed_ms": 15.0,
-        "wind_from_deg": 210.0,
-        "current_speed_ms": 0.3,
-        "current_dir_to_deg": 90.0,
+        # Parametri meteo-marini
+        "forecast_hs": 2.0,
+        "forecast_tp": 7.0,
+        "forecast_wave_dir": 220.0,
+        "wind_speed": 15.0,
+        "wind_dir": 210.0,
+        "current_speed": 0.3,
+        "current_dir": 90.0,
         # Dati satellite e nave
         "satellite_type": "Sentinel-1_EW",
         "satellite_hs": 2.2,
         "satellite_hmax": 4.0,
         "iceberg_distance_nm": 8.0,  # VIOLA la clearance minima (< 15 NM)
         "ship_speed_kn": 16.0,
-        "ship_heading_deg": 275.0,
+        "ship_heading": 275.0,
+        "relative_wave_heading": 45.0,
         "baseline_foc_ton": 12.0,
         "baseline_heave_m": 2.0,
         "baseline_roll_deg": 2.5
@@ -115,9 +114,8 @@ if __name__ == "__main__":
         "applied_speed_kn", 
         "applied_detour_nm", 
         "delta_foc_ton", 
-        "heave_margin_recovered_m",
-        "roll_margin_recovered_deg",
-        "safety_margin_score",
+        "reroute_heave_m",
+        "reroute_roll_deg",
         "safety_restored"
     ]
     
