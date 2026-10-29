@@ -1,11 +1,24 @@
 """
-Motore per il calcolo della potenza richiesta, dello SFOC e del consumo di carburante
-integrato con i moduli di resistenza e propulsione della Phase 1 (adv_core).
+Motore per il calcolo della potenza richiesta e del consumo di carburante (FOC).
 """
+
+from pathlib import Path
+import sys
+
+# Aggiunge dinamicamente la root al sys.path per importare adv_core
+root_dir = Path(__file__).resolve().parent.parent.parent
+if str(root_dir) not in sys.path:
+    sys.path.append(str(root_dir))
+
+from typing import Optional
 from config import ScenarioConfig
 from models import EventRecord, CandidateScenario, CostResult
 from Phase_1.adv_core.resistance import holtrop_mennen_resistance, wind_resistance
 from Phase_1.adv_core.propulsion import leg_performance
+
+# Importazione dai moduli granulari di adv_core creati in Phase 1
+from phase_1.adv_core.resistance import holtrop_mennen_resistance, wind_resistance
+from phase_1.adv_core.propulsion import leg_performance
 
 
 class CostEvaluator:

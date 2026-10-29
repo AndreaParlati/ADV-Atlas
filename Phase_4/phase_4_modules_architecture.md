@@ -89,7 +89,7 @@ Il package è progettato seguendo i principi di **Modularità**, **Separazione d
 ---
 
 ### 5. `safety_engine.py` — Valutazione Idrodinamica e Distanza Pericoli
-* **Cosa fa:** Calcola la risposta dinamica della nave (moti di tenue al mare) ed eventualmente la clearance dagli iceberg, verificando il rispetto delle soglie operative.
+* **Cosa fa:** Calcola la risposta dinamica della nave (moti di tenue al mare) ed eventualmente la clearance dagli iceberg, verificando il rispetto delle soglie operative e quantifica i margini di sicurezza recuperata.
 * **Come lo fa:**
   1. Si interfaccia con le equazioni di *Seakeeping* della **Phase 1** per ricalcolare **Heave** e **Rollio** in base alle condizioni reali misurate da satellite ($H_{max}$) e al nuovo vettore velocità/rotta della nave.
   2. Se l'evento riguarda un pericolo iceberg (`hazard_type == 'iceberg'`), calcola la nuova distanza dal ghiaccio tenendo conto dell'offset geografico della deviazione.
@@ -128,5 +128,3 @@ Il package è progettato seguendo i principi di **Modularità**, **Separazione d
      $$\text{ScenarioGenerator} \longrightarrow \text{SafetyEngine} \longrightarrow \text{CostEvaluator} \longrightarrow \text{DecisionEngine}$$
   4. Raccoglie i risultati e invoca `IOHandler` per il salvataggio su disco.
 ```
-
-Il file è stato creato ed è pronto nel workspace per essere consultato o esportato.

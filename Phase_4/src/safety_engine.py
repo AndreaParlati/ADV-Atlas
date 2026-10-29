@@ -2,12 +2,23 @@
 Motore di verifica della sicurezza idrodinamica (Seakeeping) e distanze dai ghiacci
 integrato con i moduli oceanografici e di seakeeping della Phase 1 (adv_core).
 """
+
+from pathlib import Path
+import sys
+
+# Aggiunge dinamicamente la root al sys.path per importare adv_core
+root_dir = Path(__file__).resolve().parent.parent.parent
+if str(root_dir) not in sys.path:
+    sys.path.append(str(root_dir))
+
 from typing import Optional
 import numpy as np
 from config import SafetyThresholds
 from models import EventRecord, CandidateScenario, SafetyCheckResult, HazardType
-from Phase_1.adv_core.oceanography import speed_through_water, jonswap_spectrum
-from Phase_1.adv_core.seakeeping import motion_statistics
+
+# Importazione dai moduli granulari di adv_core creati in Phase 1
+from phase_1.adv_core.oceanography import speed_through_water, jonswap_spectrum
+from phase_1.adv_core.seakeeping import motion_statistics
 
 
 class SafetyEngine:
@@ -16,27 +27,32 @@ class SafetyEngine:
 
     def evaluate_safety(self, candidate: CandidateScenario, event: EventRecord) -> SafetyCheckResult:
         """
-        Calcola i moti effettivi della nave basandosi su spettri d'onda JONSWAP e RAO.
+        Valuta i moti della nave utilizzando STW, spettri d'onda JONSWAP e statistiche spettrali.
         """
-        # 1. Calcolo Speed Through Water (STW) effettivo rispetto alle correnti
+        applied_speed_kn = candidate.applied_speed_kn
+        ship_heading = getattr(event, 'ship_heading', 0.0)
+
+        # 1. Calcolo Speed Through Water (STW) rispetto alle correnti
         stw_knots = speed_through_water(
-            sog=candidate.applied_speed_kn,
-            current_speed=event.current_speed,
-            current_dir=event.current_dir,
-            ship_heading=event.ship_heading
+            sog=applied_speed_kn,
+            current_speed=getattr(event, 'current_speed', 0.0),
+            current_dir=getattr(event, 'current_dir', 0.0),
+            ship_heading=ship_heading
         )
-        
+
         # 2. Generazione spettro energetico JONSWAP
+        hs = getattr(event, 'forecast_hs', 3.0)
+        tp = getattr(event, 'forecast_tp', 10.0)
         frequencies = np.linspace(0.1, 2.0, 50)
-        wave_spec = jonswap_spectrum(frequencies, hs=event.forecast_hs, tp=event.forecast_tp)
-        
-        # 3. Valutazione statistica dei moti (Heave e Roll tramite RAO di risposta)
+        wave_spec = jonswap_spectrum(frequencies, hs=hs, tp=tp)
+
+        # 3. Statistiche dei moti (Heave e Roll tramite RAO)
         heave_rao = np.ones_like(frequencies) * 0.4
         roll_rao = np.ones_like(frequencies) * 1.2
-        
+
         heave_stats = motion_statistics(heave_rao, wave_spec, frequencies)
         roll_stats = motion_statistics(roll_rao, wave_spec, frequencies)
-        
+
         speed_ratio = stw_knots / max(event.ship_speed_kn, 0.1)
         heave_m = round(heave_stats['significant_response'] * (speed_ratio ** 0.8), 2)
         roll_deg = round(roll_stats['significant_response'] * speed_ratio, 2)
@@ -48,16 +64,30 @@ class SafetyEngine:
             ice_clearance = event.iceberg_distance_nm + abs(candidate.applied_detour_nm)
             ice_safe = ice_clearance >= self.thresholds.MIN_ICE_CLEARANCE_NM
 
-        # 5. Verifica complessiva delle soglie limite
+        # 5. Verifica complessiva delle soglie
         is_safe = (
             heave_m <= self.thresholds.MAX_HEAVE_M and
             roll_deg <= self.thresholds.MAX_ROLL_DEG and
             ice_safe
         )
 
+        # Calcolo dei margini recuperati
+        delta_heave = event.baseline_heave_m - heave_m
+        delta_roll = event.baseline_roll_deg - roll_deg
+
+        heave_margin_rec = round(delta_heave + max(0.0, self.thresholds.MAX_HEAVE_M - heave_m), 2)
+        roll_margin_rec = round(delta_roll + max(0.0, self.thresholds.MAX_ROLL_DEG - roll_deg), 2)
+        
+        ice_margin_rec = None
+        if ice_clearance is not None and event.iceberg_distance_nm is not None:
+            ice_margin_rec = round(ice_clearance - event.iceberg_distance_nm, 2)
+
         return SafetyCheckResult(
             heave_m=heave_m,
             roll_deg=roll_deg,
             ice_clearance_nm=ice_clearance,
-            is_safe=is_safe
+            is_safe=is_safe,
+            heave_margin_recovered_m=heave_margin_rec,
+            roll_margin_recovered_deg=roll_margin_rec,
+            ice_clearance_margin_nm=ice_margin_rec
         )

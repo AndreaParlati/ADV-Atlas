@@ -1,3 +1,4 @@
 implementare cost_evaluator con la logica reale della phase1
 implementare safety_engine con la logica reale della phase1
 controllare il csv di input
+correggere output per avere come da specifiche
