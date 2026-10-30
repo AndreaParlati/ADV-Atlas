@@ -10,7 +10,7 @@ from decision_engine import DecisionEngine
 from models import EventRecord, ADVRecord
 
 class Phase4Manager:
-    def __init__(self, input_path: str = "../Phase_3/data/coincidence_merged.parquet", output_csv: str = "phase4_routing_output.csv"):
+    def __init__(self, input_path: str = "../Phase_3/data/coincidence_merged.parquet", output_csv: str = "../Phase_5/data/adv_routing_results.csv"):
         self.input_path = input_path
         self.output_csv = output_csv
         

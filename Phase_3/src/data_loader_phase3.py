@@ -3,7 +3,7 @@ Data Loader & Coincidence Query Module for Phase 3.
 Handles hazard catalogues, Sentinel-1 STAC caches, and L3 Altimeter tracks.
 """
 
-json
+import json
 import os
 import shapely.geometry as sgeom
 from shapely import wkt as swkt

@@ -26,7 +26,7 @@ def run_phase_2_catalogue():
 def run_phase_3():
     """Esegue l'analisi di coincidenza spazio-temporale (Fase 3)[cite: 21]."""
     print("\n[Fase 3] 🛰️ Avvio analisi di coincidenza satellitare (SAR & Altimetri)...")
-    phase3_dir = project_root / "Phase_3"
+    phase3_dir = project_root / "Phase_3" / "src"
     
     run_p3_script = phase3_dir / "run_phase3.py"
     if run_p3_script.exists():

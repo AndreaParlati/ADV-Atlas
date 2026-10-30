@@ -1,57 +1,63 @@
-"""
-Modulo per l'I/O: lettura e validazione dei dataset di Phase 3 (Parquet o CSV) ed esportazione.
-"""
-from typing import List
 import pandas as pd
-from models import EventRecord, ADVRecord
+from pathlib import Path
+from models import EventRecord, HazardType, ADVRecord
 
 class IOHandler:
     @staticmethod
-    def load_events_from_phase3(file_path: str) -> List[EventRecord]:
-        """Legge il file di Phase 3 (Parquet o CSV), mappa i campi e restituisce EventRecord."""
-        if file_path.endswith(".parquet"):
-            df = pd.read_parquet(file_path)
+    def load_events_from_phase3(file_path: str) -> list[EventRecord]:
+        """Carica gli eventi di coincidenza dalla Fase 3 supportando Parquet e CSV con mappatura flessibile."""
+        path = Path(file_path)
+        if not path.exists():
+            raise FileNotFoundError(f"❌ Impossibile trovare il file di input della Fase 3: {file_path}")
+        
+        if path.suffix.lower() == ".parquet":
+            df = pd.read_parquet(path)
+        elif path.suffix.lower() == ".csv":
+            df = pd.read_csv(path)
         else:
-            df = pd.read_csv(file_path)
-            
+            raise ValueError(f"❌ Formato file non supportato: {path.suffix}")
+
         events = []
         for _, row in df.iterrows():
-            row_dict = row.to_dict()
+            event = EventRecord(
+                event_id=str(row.get("event_id", "UNKNOWN")),
+                timestamp=str(row.get("timestamp", row.get("datetime", ""))),
+                latitude=float(row.get("latitude", row.get("lat", 0.0))),
+                longitude=float(row.get("longitude", row.get("lon", 0.0))),
+                forecast_hs=float(row.get("forecast_hs", row.get("Hs_cmems", 0.0))),
+                forecast_tp=float(row.get("forecast_tp", row.get("T0_cmems", 0.0))),
+                sar_coincident=bool(row.get("sar_coincident", False)),
+                alt_coincident=bool(row.get("alt_coincident", False)),
+                any_coincident=bool(row.get("any_coincident", False)),
+                Hs_altimeter=float(row.get("Hs_altimeter", 0.0)) if pd.notna(row.get("Hs_altimeter")) else None,
+                hazard_type=HazardType(row.get("hazard_type", HazardType.ROGUE_WAVE.value)),
+                ship_speed_kn=float(row.get("ship_speed_kn", 16.0)),
+                baseline_foc_ton=float(row.get("baseline_foc_ton", 14.0)),
+                baseline_heave_m=float(row.get("baseline_heave_m", 0.0)),
+                baseline_roll_deg=float(row.get("baseline_roll_deg", 0.0))
+            )
+            events.append(event)
             
-            # Mapping di compatibilità per colonne provenienti da Phase 3 (es. datetime -> timestamp, lon -> longitude)
-            event_data = {
-                "event_id": str(row_dict.get("event_id")),
-                "timestamp": str(row_dict.get("datetime", row_dict.get("timestamp", ""))),
-                "longitude": float(row_dict.get("lon", row_dict.get("longitude", 0.0))),
-                "latitude": float(row_dict.get("lat", row_dict.get("latitude", 0.0))),
-                "forecast_hs": float(row_dict.get("Hs_cmems", row_dict.get("forecast_hs", 3.0))),
-                "forecast_tp": float(row_dict.get("T0_cmems", row_dict.get("forecast_tp", 10.0))),
-                "sar_coincident": bool(row_dict.get("sar_coincident", False)),
-                "alt_coincident": bool(row_dict.get("alt_coincident", False)),
-                "any_coincident": bool(row_dict.get("any_coincident", False)),
-                "hs_altimeter": float(row_dict["Hs_altimeter"]) if pd.notna(row_dict.get("Hs_altimeter")) else None,
-                # Campi di fallback standard se non presenti nel file unificato
-                "ship_speed_kn": float(row_dict.get("ship_speed_kn", 16.0)),
-                "baseline_foc_ton": float(row_dict.get("baseline_foc_ton", 14.0)),
-                "baseline_heave_m": float(row_dict.get("baseline_heave_m", 4.1)),
-                "baseline_roll_deg": float(row_dict.get("baseline_roll_deg", 6.2)),
-            }
-            
-            # Aggiunge eventuali altri campi presenti
-            for k, v in row_dict.items():
-                if k not in event_data and pd.notna(v):
-                    event_data[k] = v
-
-            events.append(EventRecord(**event_data))
         return events
 
     @staticmethod
-    def save_adv_results(results: List[ADVRecord], output_path: str) -> None:
-        """Salva il dataset finale ADV in formato CSV o Parquet."""
-        data = [r.model_dump() for r in results]
-        df = pd.DataFrame(data)
+    def save_adv_results(adv_results: list[ADVRecord], output_path: str) -> None:
+        """Salva i risultati dell'elaborazione ADV in un file CSV."""
+        path = Path(output_path)
+        path.parent.mkdir(parents=True, exist_ok=True)
         
-        if output_path.endswith(".parquet"):
-            df.to_parquet(output_path, index=False)
-        else:
-            df.to_csv(output_path, index=False)
+        data = []
+        for res in adv_results:
+            data.append({
+                "event_id": getattr(res, "event_id", "UNKNOWN"),
+                "optimal_strategy": res.optimal_strategy.value if hasattr(res.optimal_strategy, "value") else str(res.optimal_strategy),
+                "applied_speed_kn": getattr(res, "applied_speed_kn", 0.0),
+                "applied_detour_nm": getattr(res, "applied_detour_nm", 0.0),
+                "delta_foc_ton": getattr(res, "delta_foc_ton", 0.0),
+                "reroute_heave_m": getattr(res, "reroute_heave_m", 0.0),
+                "reroute_roll_deg": getattr(res, "reroute_roll_deg", 0.0),
+                "safety_restored": getattr(res, "safety_restored", False)
+            })
+        
+        df = pd.DataFrame(data)
+        df.to_csv(path, index=False)
