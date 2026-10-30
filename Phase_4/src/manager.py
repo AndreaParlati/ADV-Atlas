@@ -1,6 +1,7 @@
 """
-Orchestratore principale per l'esecuzione batch della Phase 4.
+Orchestratore principale per l'esecuzione batch della Phase 4 (integrato con i dati di Phase 3).
 """
+from typing import List
 from io_handler import IOHandler
 from scenario_generator import ScenarioGenerator
 from safety_engine import SafetyEngine
@@ -9,8 +10,8 @@ from decision_engine import DecisionEngine
 from models import EventRecord, ADVRecord
 
 class Phase4Manager:
-    def __init__(self, input_csv: str, output_csv: str):
-        self.input_csv = input_csv
+    def __init__(self, input_path: str = "../Phase_3/data/coincidence_merged.parquet", output_csv: str = "phase4_routing_output.csv"):
+        self.input_path = input_path
         self.output_csv = output_csv
         
         # Inizializzazione dei sottomoduli
@@ -34,8 +35,9 @@ class Phase4Manager:
         return DecisionEngine.select_best_option(event, evaluations)
 
     def run(self) -> None:
-        """Esegue il batch su tutto il dataset di input e salva i risultati."""
-        events = IOHandler.load_events_from_csv(self.input_csv)
+        """Esegue il batch caricando il dataset reale della Phase 3 e salva i risultati."""
+        print(f"📥 Caricamento eventi reali da Phase 3: {self.input_path}")
+        events = IOHandler.load_events_from_phase3(self.input_path)
         adv_results: List[ADVRecord] = []
 
         for event in events:
@@ -43,3 +45,4 @@ class Phase4Manager:
             adv_results.append(result)
 
         IOHandler.save_adv_results(adv_results, self.output_csv)
+        print(f"✅ Elaborazione completata. Risultati salvati in: {self.output_csv}")

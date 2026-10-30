@@ -1,5 +1,6 @@
 """
-Motore di verifica della sicurezza idrodinamica (Seakeeping) e distanze dai ghiacci
+Motore di verifica della sicurezza idrodinamica (Seakeeping) e distanze dai ghiacci,
+integrato con i dati di osservazione satellitare della Phase 3 e i moduli di Phase 1.
 """
 
 from pathlib import Path
@@ -16,7 +17,7 @@ import numpy as np
 from config import SafetyThresholds
 from models import EventRecord, CandidateScenario, SafetyCheckResult, HazardType
 
-# Importazione dai moduli granulari di adv_core
+# Importazione dai moduli granulari di adv_core (Phase 1)
 from oceanography import speed_through_water, jonswap_spectrum
 from seakeeping import motion_statistics
 
@@ -27,7 +28,7 @@ class SafetyEngine:
 
     def evaluate_safety(self, candidate: CandidateScenario, event: EventRecord) -> SafetyCheckResult:
         """
-        Valuta i moti della nave utilizzando STW, spettri d'onda JONSWAP e statistiche spettrali.
+        Valuta i moti della nave utilizzando STW, spettri d'onda JONSWAP (corretti con altimetro se disponibile) e statistiche spettrali.
         """
         applied_speed_kn = candidate.applied_speed_kn
         ship_heading = getattr(event, 'ship_heading', 0.0)
@@ -40,13 +41,17 @@ class SafetyEngine:
             ship_heading=ship_heading
         )
 
-        # 2. Generazione spettro energetico JONSWAP
-        hs = getattr(event, 'forecast_hs', 3.0)
+        # 2. Correzione dell'altezza d'onda effettiva basata sui dati reali di Phase 3 (Altimetria L3)
+        hs_effective = event.forecast_hs
+        if event.alt_coincident and event.hs_altimeter is not None:
+            hs_effective = event.hs_altimeter  # Sostituisce la previsione con la misura reale satellitare
+
+        # 3. Generazione spettro energetico JONSWAP
         tp = getattr(event, 'forecast_tp', 10.0)
         frequencies = np.linspace(0.1, 2.0, 50)
-        wave_spec = jonswap_spectrum(frequencies, hs=hs, tp=tp)
+        wave_spec = jonswap_spectrum(frequencies, hs=hs_effective, tp=tp)
 
-        # 3. Statistiche dei moti (Heave e Roll tramite RAO)
+        # 4. Statistiche dei moti (Heave e Roll tramite RAO)
         heave_rao = np.ones_like(frequencies) * 0.4
         roll_rao = np.ones_like(frequencies) * 1.2
 
@@ -57,14 +62,14 @@ class SafetyEngine:
         heave_m = round(heave_stats['significant_response'] * (speed_ratio ** 0.8), 2)
         roll_deg = round(roll_stats['significant_response'] * speed_ratio, 2)
 
-        # 4. Verifica Clearance Iceberg (Modulo A)
+        # 5. Verifica Clearance Iceberg (Modulo A)
         ice_clearance: Optional[float] = None
         ice_safe = True
         if event.hazard_type == HazardType.ICEBERG and event.iceberg_distance_nm is not None:
             ice_clearance = event.iceberg_distance_nm + abs(candidate.applied_detour_nm)
             ice_safe = ice_clearance >= self.thresholds.MIN_ICE_CLEARANCE_NM
 
-        # 5. Verifica complessiva delle soglie
+        # 6. Verifica complessiva delle soglie
         is_safe = (
             heave_m <= self.thresholds.MAX_HEAVE_M and
             roll_deg <= self.thresholds.MAX_ROLL_DEG and

@@ -4,8 +4,22 @@ numpy>=1.24.0
 pydantic>=2.0.0
 pyarrow>=12.0.0
 
+# --- Satellite Data, STAC & NetCDF Handling ---
+copernicusmarine>=1.0.0
+pystac-client>=0.7.0
+xarray>=2023.0.0
+netcdf4>=1.6.0
+
+# --- Spatial, Geodetic & Geometry Analysis ---
+shapely>=2.0.0
+pyproj>=3.5.0
+
 # --- Hydrodynamics, Physics & Numerical Calculations ---
 scipy>=1.10.0
+
+# --- Visualization & Utilities ---
+matplotlib>=3.7.0
+tqdm>=4.64.0
 
 # --- Testing & Quality Assurance ---
 pytest>=7.3.0
